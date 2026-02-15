@@ -1,0 +1,2 @@
+#!/bin/bash
+cd ~/tools/codewiki && node codewiki.js "$@"
