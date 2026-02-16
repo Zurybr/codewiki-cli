@@ -16,6 +16,49 @@ CodeWiki es una plataforma de Google que genera documentación automáticamente 
 - Extraer información de arquitectura y APIs
 - Investigar dependencias antes de usarlas
 
+## Architecture (Real Code Example)
+
+```javascript
+// ~/tools/codewiki/codewiki.js
+class CodeWikiClient {
+  constructor() {
+    this.browser = null;
+  }
+
+  async init() {
+    this.browser = await puppeteer.launch({
+      headless: 'new',
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+    });
+  }
+
+  async getRepoDocumentation(owner, repo) {
+    const page = await this.browser.newPage();
+    const url = `https://codewiki.google/github.com/${owner}/${repo}`;
+
+    await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
+    await new Promise(r => setTimeout(r, 3000)); // Wait for JS render
+
+    const data = await page.evaluate(() => {
+      const title = document.querySelector('h1')?.textContent?.trim() || '';
+      const toc = Array.from(document.querySelectorAll('h2, h3'))
+        .map(h => ({ level: h.tagName, text: h.textContent.trim() }));
+      const body = document.body.innerText;
+      return { title, toc, body };
+    });
+
+    await page.close();
+    return { owner, repo, url, ...data };
+  }
+}
+```
+
+**Key Patterns Demonstrated:**
+- Class-based client with lifecycle: init → operation → close
+- Puppeteer for browser automation
+- Wait strategy: networkidle2 + hard delay
+- Page.evaluate() for DOM extraction
+
 ## When to Use
 
 **Usar cuando:**
@@ -38,89 +81,64 @@ CodeWiki es una plataforma de Google que genera documentación automáticamente 
 | `doc owner/repo` | Documentación en Markdown | `codewiki doc facebook/react` |
 | `repo owner/repo` | Datos completos en JSON | `codewiki repo golang/go` |
 
-## Installation
+## CLI Router Pattern
 
-```bash
-# Verificar si está instalado
-if [ ! -d "$HOME/tools/codewiki" ]; then
-    git clone https://github.com/zurybr/codewiki-cli.git ~/tools/codewiki
-    cd ~/tools/codewiki && npm install
-fi
+```javascript
+// Command dispatching
+async function main() {
+  const args = process.argv.slice(2);
+  const command = args[0];
+
+  if (command === 'featured') {
+    const repos = await client.getFeaturedRepos();
+    console.log(JSON.stringify(repos, null, 2));
+  }
+  else if (command === 'doc' && args[1]) {
+    const [owner, repo] = args[1].split('/');
+    const doc = await client.getRepoDocumentation(owner, repo);
+    console.log(`# ${doc.title}\n`);
+    console.log('## Table of Contents\n');
+    doc.toc.forEach(h => console.log(`- ${h.text}`));
+    console.log('\n## Documentation\n');
+    console.log(doc.body.slice(0, 5000));
+  }
+}
 ```
 
-## Usage
-
-### Python (Recomendado)
+## Python Integration
 
 ```python
-# Agregar a PYTHONPATH si es necesario
-import sys
-sys.path.insert(0, os.path.expanduser("~/tools/codewiki"))
+# ~/tools/codewiki/codewiki.py
+import subprocess
 
-from codewiki import CodeWikiClient
+class CodeWikiClient:
+    def _run(self, args: list) -> str:
+        result = subprocess.run(
+            ['~/tools/codewiki/codewiki'] + args,
+            capture_output=True, text=True
+        )
+        return result.stdout
 
-client = CodeWikiClient()
-
-# Listar repositorios destacados
-repos = client.get_featured_repos()
-
-# Obtener documentación de un repo
-docs = client.get_repo_docs("facebook", "react")
-
-# Obtener markdown
-markdown = client.get_repo_markdown("modelcontextprotocol", "python-sdk")
-```
-
-### CLI Directo
-
-```bash
-~/tools/codewiki/codewiki featured
-~/tools/codewiki/codewiki doc owner/repo
-~/tools/codewiki/codewiki repo owner/repo
-```
-
-## Integration Pattern
-
-```python
-def research_repository(owner: str, repo: str) -> dict:
-    """Investiga un repositorio usando CodeWiki."""
-    import sys
-    import os
-    sys.path.insert(0, os.path.expanduser("~/tools/codewiki"))
-    from codewiki import CodeWikiClient
-
-    client = CodeWikiClient()
-
-    # Obtener datos
-    data = client.get_repo_docs(owner, repo)
-
-    return {
-        "title": data.get("title", ""),
-        "toc": data.get("toc", []),
-        "url": data.get("url", ""),
-        "summary": data.get("body", "")[:2000]  # Primeros 2000 chars
-    }
+    def get_repo_markdown(self, owner: str, repo: str) -> str:
+        return self._run(['doc', f'{owner}/{repo}'])
 ```
 
 ## Common Use Cases
 
 1. **Pre-dependency research**
    ```python
-   # Antes de instalar una librería, entender su API
+   # Antes de instalar una librería
    docs = client.get_repo_markdown("pydantic", "pydantic")
    ```
 
 2. **Architecture analysis**
-   ```python
-   # Entender la estructura de un framework
-   data = client.get_repo_docs("fastapi", "fastapi")
-   toc = data["toc"]  # Table of contents
+   ```bash
+   codewiki doc facebook/react
    ```
 
 3. **Quick API reference**
-   ```python
-   # Ver ejemplos de uso
-   markdown = client.get_repo_markdown("anthropics", "anthropic-sdk-python")
+   ```bash
+   codewiki doc anthropics/anthropic-sdk-python
    ```
 
 ## Limitations
@@ -128,7 +146,18 @@ def research_repository(owner: str, repo: str) -> dict:
 - Solo repositorios públicos de GitHub
 - Requiere Puppeteer (Node.js)
 - Tiempo de respuesta: 30-60 segundos por request
-- Depende de la estructura HTML de CodeWiki (puede romperse)
+- Depende de la estructura HTML de CodeWiki
+
+## Installation
+
+```bash
+# Clone y setup
+git clone https://github.com/zurybr/codewiki-cli.git ~/tools/codewiki
+cd ~/tools/codewiki && npm install
+
+# Agregar al PATH
+ln -sf ~/tools/codewiki/codewiki /usr/local/bin/codewiki
+```
 
 ## Repository
 
