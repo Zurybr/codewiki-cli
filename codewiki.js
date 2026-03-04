@@ -108,6 +108,8 @@ async function main() {
   const client = new CodeWikiClient();
   await client.init();
   
+  let exitCode = 0;
+
   try {
     if (command === 'featured') {
       const repos = await client.getFeaturedRepos();
@@ -117,10 +119,11 @@ async function main() {
       const [owner, repo] = args[1].split('/');
       if (!owner || !repo) {
         console.error('Usage: node codewiki.js repo owner/repo');
-        process.exit(1);
+        exitCode = 1;
+      } else {
+        const doc = await client.getRepoDocumentation(owner, repo);
+        console.log(JSON.stringify(doc, null, 2));
       }
-      const doc = await client.getRepoDocumentation(owner, repo);
-      console.log(JSON.stringify(doc, null, 2));
     }
     else if (command === 'doc' && args[1]) {
       const [owner, repo] = args[1].split('/');
@@ -136,15 +139,21 @@ async function main() {
       console.log(doc.body.slice(0, 5000));
     }
     else {
-      console.log('CodeWiki Client');
-      console.log('Commands:');
-      console.log('  featured          - List featured repositories');
-      console.log('  repo owner/repo   - Get full documentation (JSON)');
-      console.log('  doc owner/repo    - Get documentation (Markdown)');
+      console.error('CodeWiki Client');
+      console.error('Commands:');
+      console.error('  featured          - List featured repositories');
+      console.error('  repo owner/repo   - Get full documentation (JSON)');
+      console.error('  doc owner/repo    - Get documentation (Markdown)');
+      exitCode = 1;
     }
   } finally {
     await client.close();
   }
+
+  if (exitCode !== 0) process.exit(exitCode);
 }
 
-main().catch(console.error);
+main().catch(err => {
+  console.error(err.stack || String(err));
+  process.exit(1);
+});

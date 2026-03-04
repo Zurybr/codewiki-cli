@@ -2,10 +2,12 @@
 """
 CodeWiki Python Client - Wrapper para la herramienta codewiki.js
 Permite acceder a CodeWiki desde Python de forma sencilla.
+Compatible con LettaBot como skill de Python.
 """
 
 import subprocess
 import json
+import sys
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 
@@ -13,7 +15,7 @@ CODEWIKI_PATH = Path.home() / "tools" / "codewiki" / "codewiki"
 
 
 class CodeWikiClient:
-    """Cliente para acceder a CodeWiki de Google."""
+    """Cliente para acceder a CodeWiki de Google. Compatible con LettaBot."""
 
     def __init__(self, codewiki_path: Optional[str] = None):
         self.codewiki_path = Path(codewiki_path) if codewiki_path else CODEWIKI_PATH
@@ -47,36 +49,39 @@ class CodeWikiClient:
 
 def main():
     """CLI para probar el cliente."""
-    import sys
-
     client = CodeWikiClient()
 
     if len(sys.argv) < 2:
-        print("Uso: python codewiki.py [featured|repo|doc] [owner/repo]")
-        print("\nEjemplos:")
-        print("  python codewiki.py featured")
-        print("  python codewiki.py repo facebook/react")
-        print("  python codewiki.py doc anthropics/anthropic-sdk-python")
+        print("Uso: python codewiki.py [featured|repo|doc] [owner/repo]", file=sys.stderr)
+        print("\nEjemplos:", file=sys.stderr)
+        print("  python codewiki.py featured", file=sys.stderr)
+        print("  python codewiki.py repo facebook/react", file=sys.stderr)
+        print("  python codewiki.py doc anthropics/anthropic-sdk-python", file=sys.stderr)
         sys.exit(1)
 
     command = sys.argv[1]
 
-    if command == "featured":
-        repos = client.get_featured_repos()
-        print(json.dumps(repos, indent=2))
+    try:
+        if command == "featured":
+            repos = client.get_featured_repos()
+            print(json.dumps(repos, indent=2))
 
-    elif command in ("repo", "doc") and len(sys.argv) >= 3:
-        owner, repo = sys.argv[2].split("/")
+        elif command in ("repo", "doc") and len(sys.argv) >= 3:
+            owner, repo = sys.argv[2].split("/")
 
-        if command == "repo":
-            docs = client.get_repo_docs(owner, repo)
-            print(json.dumps(docs, indent=2))
+            if command == "repo":
+                docs = client.get_repo_docs(owner, repo)
+                print(json.dumps(docs, indent=2))
+            else:
+                md = client.get_repo_markdown(owner, repo)
+                print(md)
+
         else:
-            md = client.get_repo_markdown(owner, repo)
-            print(md)
+            print("Comando no reconocido. Usa: featured, repo, doc", file=sys.stderr)
+            sys.exit(1)
 
-    else:
-        print("Comando no reconocido. Usa: featured, repo, doc")
+    except RuntimeError as e:
+        print(str(e), file=sys.stderr)
         sys.exit(1)
 
 

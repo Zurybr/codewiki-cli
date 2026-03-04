@@ -1,11 +1,21 @@
 ---
 name: codewiki
 description: Use when needing to explore GitHub repository documentation, understand codebase architecture, or get structured docs for any public repo without cloning. Use for research before using a library, understanding unfamiliar code, or providing context about open-source projects.
+tools:
+  - name: codewiki_featured
+    description: List featured repositories on CodeWiki
+    command: ./codewiki featured
+  - name: codewiki_repo
+    description: Get full JSON documentation for a GitHub repository
+    command: ./codewiki repo <owner>/<repo>
+  - name: codewiki_doc
+    description: Get Markdown documentation for a GitHub repository
+    command: ./codewiki doc <owner>/<repo>
 ---
 
 # CodeWiki
 
-Herramienta para acceder a [Google CodeWiki](https://codewiki.google/) desde Claude Code. Permite obtener documentación estructurada de cualquier repositorio público de GitHub sin necesidad de clonarlo.
+Herramienta para acceder a [Google CodeWiki](https://codewiki.google/) desde Claude Code, Letta Code y LettaBot. Permite obtener documentación estructurada de cualquier repositorio público de GitHub sin necesidad de clonarlo.
 
 ## Overview
 
@@ -15,6 +25,51 @@ CodeWiki es una plataforma de Google que genera documentación automáticamente 
 - Obtener documentación estructurada en Markdown
 - Extraer información de arquitectura y APIs
 - Investigar dependencias antes de usarlas
+
+## LettaBot Integration
+
+This skill is compatible with [LettaBot](https://github.com/letta-ai/lettabot). To install and enable it:
+
+```bash
+# 1. Clone the skill into your LettaBot skills directory
+cd ~/.skills   # or wherever your LettaBot skills are stored
+git clone https://github.com/zurybr/codewiki-cli.git codewiki
+cd codewiki
+npm install
+
+# 2. Make the CLI executable
+chmod +x codewiki
+
+# 3. Register the skill with LettaBot
+lettabot skills
+# Select "codewiki" from the list (space to toggle, enter to confirm)
+
+# 4. Verify the skill is active
+lettabot skills status
+```
+
+Once installed, the LettaBot agent will automatically use this skill when you ask questions about GitHub repositories. Example prompts:
+
+- *"What does the facebook/react repository do?"*
+- *"Show me the architecture of kubernetes/kubernetes"*
+- *"Research pydantic/pydantic before I install it"*
+- *"List featured repos on CodeWiki"*
+
+## Commands
+
+| Comando | Descripción | Ejemplo |
+|---------|-------------|---------|
+| `featured` | Lista repos destacados | `./codewiki featured` |
+| `doc owner/repo` | Documentación en Markdown | `./codewiki doc facebook/react` |
+| `repo owner/repo` | Datos completos en JSON | `./codewiki repo golang/go` |
+
+## Output Format
+
+All commands output to **stdout**. Errors go to **stderr**. Exit code is `0` on success, non-zero on failure — compatible with LettaBot's tool execution model.
+
+- `featured` → JSON array of repositories
+- `repo owner/repo` → JSON object with full documentation
+- `doc owner/repo` → Markdown string
 
 ## Architecture (Real Code Example)
 
@@ -97,15 +152,7 @@ async function main() {
 - Necesitas el código fuente completo (usar `git clone`)
 - El repo no está indexado por CodeWiki
 
-## Commands
-
-| Comando | Descripción | Ejemplo |
-|---------|-------------|---------|
-| `featured` | Lista repos destacados | `./codewiki featured` |
-| `doc owner/repo` | Documentación en Markdown | `./codewiki doc facebook/react` |
-| `repo owner/repo` | Datos completos en JSON | `./codewiki repo golang/go` |
-
-## Installation
+## Installation (Standalone)
 
 ```bash
 # Clone y setup
@@ -157,6 +204,11 @@ class CodeWikiClient:
 - Requiere Puppeteer (Node.js)
 - Tiempo de respuesta: 30-60 segundos por request
 - Depende de la estructura HTML de CodeWiki
+
+## Requirements
+
+- Node.js v18+
+- Puppeteer (included in `node_modules` after `npm install`)
 
 ## Repository
 
